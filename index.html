@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculadora de Frete</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: 40px auto;
+      padding: 20px;
+      background-color: #f4f4f4;
+      border-radius: 8px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    img.logo {
+      display: block;
+      margin: 0 auto 20px auto;
+      width: 100px;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 15px;
+      border: none;
+      background-color: #2d89e5;
+      color: white;
+      font-size: 1em;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #1b5fa7;
+    }
+    .resultado {
+      margin-top: 20px;
+      font-size: 1.1em;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <img src="casa.png" alt="Logo" class="logo" />
+  
+  <label for="nomeProduto">Nome do Produto:</label>
+  <input type="text" id="nomeProduto" placeholder="Ex: Camiseta" />
+
+  <label for="preco">Preço do Produto (R$):</label>
+  <input type="number" id="preco" min="0" step="0.01" placeholder="Ex: 150.00" />
+
+  <label for="cep">CEP:</label>
+  <input type="text" id="cep" maxlength="9" placeholder="Ex: 01234-567" />
+
+  <label for="nomeVendedor">Nome do Vendedor:</label>
+  <input type="text" id="nomeVendedor" placeholder="Ex: João" />
+
+  <div class="resultado" id="resultadoFrete"></div>
+  <div class="resultado" id="resultadoTotal"></div>
+  <div class="resultado" id="resultadoComissao" style="color: green;"></div>
+
+  <button id="btnComissao">Calcular Comissão (5%)</button>
+  <button id="btnSalvarPDF">Salvar PDF (sem comissão)</button>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    const precoInput = document.getElementById('preco');
+    const cepInput = document.getElementById('cep');
+    const resultadoFrete = document.getElementById('resultadoFrete');
+    const resultadoTotal = document.getElementById('resultadoTotal');
+    const resultadoComissao = document.getElementById('resultadoComissao');
+    const btnComissao = document.getElementById('btnComissao');
+    const btnSalvarPDF = document.getElementById('btnSalvarPDF');
+
+    const nomeProdutoInput = document.getElementById('nomeProduto');
+    const nomeVendedorInput = document.getElementById('nomeVendedor');
+
+    let valorFrete = 0;
+    let valorTotal = 0;
+
+    function limparResultados() {
+      resultadoFrete.textContent = '';
+      resultadoTotal.textContent = '';
+      resultadoComissao.textContent = '';
+      valorFrete = 0;
+      valorTotal = 0;
+    }
+
+    function calcularFrete() {
+      const preco = parseFloat(precoInput.value);
+      let cep = cepInput.value.trim();
+
+      if (isNaN(preco) || preco <= 0 || cep.length < 8) {
+        limparResultados();
+        return;
+      }
+
+      cep = cep.replace(/\D/g, '');
+
+      if (!/^\d{8}$/.test(cep)) {
+        limparResultados();
+        return;
+      }
+
+      const cepNum = parseInt(cep, 10);
+
+      let taxaFrete = 0.10;
+
+      if (cepNum >= 1000000 && cepNum <= 19999999) {
+        taxaFrete = 0.02;
+      }
+
+      valorFrete = preco * taxaFrete;
+      valorTotal = preco + valorFrete;
+
+      resultadoFrete.textContent = `Preço do frete: R$ ${valorFrete.toFixed(2)}`;
+      resultadoTotal.textContent = `Preço total (produto + frete): R$ ${valorTotal.toFixed(2)}`;
+      resultadoComissao.textContent = '';
+    }
+
+    precoInput.addEventListener('input', calcularFrete);
+    cepInput.addEventListener('input', calcularFrete);
+
+    btnComissao.addEventListener('click', () => {
+      const preco = parseFloat(precoInput.value);
+      if (isNaN(preco) || preco <= 0) {
+        resultadoComissao.textContent = 'Digite um preço válido para calcular a comissão.';
+        return;
+      }
+      const comissao = preco * 0.05;
+      resultadoComissao.textContent = `Comissão do vendedor: R$ ${comissao.toFixed(2)}`;
+    });
+
+    btnSalvarPDF.addEventListener('click', () => {
+      const nomeProduto = nomeProdutoInput.value.trim();
+      const nomeVendedor = nomeVendedorInput.value.trim();
+      const preco = parseFloat(precoInput.value);
+
+      if (!nomeProduto) {
+        alert('Preencha o nome do produto antes de salvar o PDF.');
+        return;
+      }
+      if (!nomeVendedor) {
+        alert('Preencha o nome do vendedor antes de salvar o PDF.');
+        return;
+      }
+      if (isNaN(preco) || preco <= 0) {
+        alert('Digite um preço válido antes de salvar o PDF.');
+        return;
+      }
+      if (valorFrete === 0 || valorTotal === 0) {
+        alert('Digite o CEP para calcular o frete antes de salvar o PDF.');
+        return;
+      }
+
+      const doc = new jsPDF();
+
+      doc.setFontSize(16);
+      doc.text('Resumo do Pedido', 20, 20);
+
+      doc.setFontSize(12);
+      doc.text(`Produto: ${nomeProduto}`, 20, 40);
+      doc.text(`Vendedor: ${nomeVendedor}`, 20, 50);
+      doc.text(`Preço do Produto: R$ ${preco.toFixed(2)}`, 20, 60);
+      doc.text(`Preço do Frete: R$ ${valorFrete.toFixed(2)}`, 20, 70);
+      doc.text(`Preço Total: R$ ${valorTotal.toFixed(2)}`, 20, 80);
+
+      doc.save('resumo_pedido.pdf');
+    });
+  </script>
+</body>
+</html>
